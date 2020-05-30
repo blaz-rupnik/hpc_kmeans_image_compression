@@ -22,6 +22,28 @@ void initCentroids(int *centroids, int num_of_clusters){
     }
 }
 
+void applyNewCentroidValue(int centroidIndex, int* centroids, int* closest_centroid_indices, unsigned char *image, int size){
+    int count, blue, green, red = 0;
+    //go through all points and compute average for all belonging to this cluster
+    for(int i = 0; i < (size); i++){
+        if(closest_centroid_indices[i] == centroidIndex){
+            count++;
+            blue = blue + image[i * 4];
+            green = green + image[i * 4 + 1];
+            red = red + image[i * 4 + 2];
+        }
+    }
+    //compute average, TODO: How to handle empty cluster
+    if(count == 0){
+        printf("Warning! Cluster %d has no points. \n", centroidIndex);
+    }else {
+        centroids[centroidIndex * 4] = blue / count;
+        centroids[centroidIndex * 4 + 1] = green / count;
+        centroids[centroidIndex * 4 + 2] = red / count;
+        //we leave alpha untouched
+    }
+}
+
 int findClosestCentroid(int *centroids, int num_of_clusters, int blue, int green, int red){
     //we init index and distance to 1st centroid, than compute for the remaining ones
     int centroidIndex = 0;
@@ -61,7 +83,7 @@ int main(int argc, char *argv[]){
 	FreeImage_Unload(imageLoad32);
 	FreeImage_Unload(imageLoad);
 
-    //get number of clusters from 2nd argument and num of iteration from 3rd argument
+    //get number of clusters from 2nd argument and num of iterations from 3rd argument
     int num_of_clusters = atoi(argv[2]);
     int num_of_iterations = atoi(argv[3]); 
 
@@ -84,7 +106,10 @@ int main(int argc, char *argv[]){
             int red = imageIn[imageStartingPointIndex + 2];
             closest_centroid_indices[point] = findClosestCentroid(centroids, num_of_clusters, blue, green, red);
         }
-        //step 2 TODO
+        //step 2: for each centroid compute average which will be new centroid
+        for(int centroid = 0; centroid < (num_of_clusters); centroid++){
+            applyNewCentroidValue(centroid, centroids, closest_centroid_indices, imageIn, width*height);
+        }
     }
     
 }
