@@ -7,23 +7,36 @@
 #include "FreeImage.h"
 
 void printImage(unsigned char *image, int size){
-    for(int i = 0; i < (size); i++){
-        printf("%d %d \n", i, image[i]);
+    //helper function for debugging purposes
+    for(int i = 0; i < (size); i = i + 4){
+        printf("index: %d, B: %d, G: %d, R: %d \n", i, image[i], image[i+1], image[i+2]);
     }
 }
 
-void initCentroids(int *centroids, int num_of_clusters){
+void printArrayWithStep4(int* arrayToPrint, int size){
+    //helper function for debugging purposes
+    for(int c = 0; c < (size); c = c + 4){
+        printf("%d %d %d %d \n", arrayToPrint[c], arrayToPrint[c+1], arrayToPrint[c+2], arrayToPrint[c+3]);
+    }
+}
+
+void initCentroids(int *centroids, int num_of_clusters, unsigned char* imageIn){
     //alpha channel is always 255 because of no transparent images
+    int counter = 0;
     for(int i = 0; i < (num_of_clusters * 4); i = i + 4){
-        centroids[i] = rand() % 256;
-        centroids[i + 1] = rand() % 256;
-        centroids[i + 2] = rand() % 256;
+        centroids[i] = imageIn[counter];
+        centroids[i + 1] = imageIn[counter+1];
+        centroids[i + 2] = imageIn[counter+2];
         centroids[i + 3] = 255;
+        counter = counter + 4;
     }
 }
 
 void applyNewCentroidValue(int centroidIndex, int* centroids, int* closest_centroid_indices, unsigned char *image, int size){
-    int count, blue, green, red = 0;
+    int count = 0;
+    int blue = 0;
+    int green = 0;
+    int red = 0;
     //go through all points and compute average for all belonging to this cluster
     for(int i = 0; i < (size); i++){
         if(closest_centroid_indices[i] == centroidIndex){
@@ -56,8 +69,19 @@ int findClosestCentroid(int *centroids, int num_of_clusters, int blue, int green
             minimum_distance = current_distance;
         }
     }
-
     return centroidIndex;
+}
+
+void applyNewColoursToImage(unsigned char* image, int* closest_centroid_indices,  int size, int num_of_clusters, int* centroids){
+    //for each pixel in image assign it new centroid colour
+    for(int i = 0; i < (size); i = i + 4){
+        //find colour centroid for this pixel
+        int closestCentroid = closest_centroid_indices[i/4];
+        //apply centroid colour to this pixel
+        image[i] = centroids[closestCentroid * 4];
+        image[i+1] = centroids[closestCentroid * 4 + 1];
+        image[i+2] = centroids[closestCentroid * 4 + 2];
+    }
 }
 
 int main(int argc, char *argv[]){
@@ -71,7 +95,6 @@ int main(int argc, char *argv[]){
     int width = FreeImage_GetWidth(imageLoad32);
 	int height = FreeImage_GetHeight(imageLoad32);
 	int pitch = FreeImage_GetPitch(imageLoad32);
-    printf("width: %d \n", width);
 
 	//Prepare room for a raw data copy of the image
     unsigned char *imageIn = (unsigned char *)malloc(height*pitch * sizeof(unsigned char));
@@ -87,12 +110,9 @@ int main(int argc, char *argv[]){
     int num_of_clusters = atoi(argv[2]);
     int num_of_iterations = atoi(argv[3]); 
 
-    //initialize random seed
-    srand((unsigned int)time(NULL));
-
     //centroid init array
     int *centroids = (int*)malloc(num_of_clusters * 4 * sizeof(int));
-    initCentroids(centroids, num_of_clusters);
+    initCentroids(centroids, num_of_clusters, imageIn);
 
     //init array for keeping indices of closest centroid
     int *closest_centroid_indices = (int*)malloc(width * height * sizeof(int));
@@ -111,5 +131,12 @@ int main(int argc, char *argv[]){
             applyNewCentroidValue(centroid, centroids, closest_centroid_indices, imageIn, width*height);
         }
     }
-    
+
+    //apply new colours to input image
+    applyNewColoursToImage(imageIn, closest_centroid_indices, pitch*height, num_of_clusters, centroids);
+
+    //printf("IMAGE: \n");
+    //printImage(imageIn, width * height);
+
+    //encode image back TODO FREEIMAGE
 }
