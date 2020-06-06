@@ -248,6 +248,6 @@ int main(int argc, char *argv[]) {
 
     // Save image
 	FIBITMAP *imageOutBitmap = FreeImage_ConvertFromRawBits(imageIn, width, height, pitch, 32, FI_RGBA_RED_MASK, FI_RGBA_GREEN_MASK, FI_RGBA_BLUE_MASK, TRUE);
-	FreeImage_Save(FIF_PNG, imageOutBitmap, "output/test.png", 0);
+	FreeImage_Save(FIF_PNG, imageOutBitmap, "output/test_opencl.png", 0);
 	FreeImage_Unload(imageOutBitmap);
 }
