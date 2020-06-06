@@ -12,7 +12,8 @@
 void printImage(unsigned char *image, int size){
     //helper function for debugging purposes
     for(int i = 0; i < (size); i = i + 4){
-        printf("index: %d, B: %d, G: %d, R: %d \n", i, image[i], image[i+1], image[i+2]);
+        int image_position = i / 4;
+        printf("index: %d, B: %d, G: %d, R: %d, A: %d \n", image_position, image[i], image[i+1], image[i+2], image[i+3]);
     }
 }
 
@@ -23,15 +24,16 @@ void printArrayWithStep4(int* arrayToPrint, int size){
     }
 }
 
-void initCentroids(int *centroids, int num_of_clusters, unsigned char* imageIn){
-    //alpha channel is always 255 because of no transparent images
+void initCentroids(int *centroids, int num_of_clusters, unsigned char* imageIn, int imageSize){
     int counter = 0;
+    //we use interval to select starting centroids from image, spreaded equally across
+    int interval = imageSize / num_of_clusters;
     for(int i = 0; i < (num_of_clusters * 4); i = i + 4){
         centroids[i] = imageIn[counter];
         centroids[i + 1] = imageIn[counter+1];
         centroids[i + 2] = imageIn[counter+2];
-        centroids[i + 3] = 255;
-        counter = counter + 4;
+        centroids[i + 3] = imageIn[counter+3];
+        counter = counter + (interval * 4);
     }
 }
 
@@ -44,6 +46,7 @@ void applyNewColoursToImage(unsigned char* image, int* closest_centroid_indices,
         image[i] = centroids[closestCentroid * 4];
         image[i+1] = centroids[closestCentroid * 4 + 1];
         image[i+2] = centroids[closestCentroid * 4 + 2];
+        image[i+3] = centroids[closestCentroid * 4 + 3];
     }
 }
 
@@ -77,7 +80,7 @@ int main(int argc, char *argv[]) {
 
     //centroid init array
     int *centroids = (int*)malloc(num_of_clusters * 4 * sizeof(int));
-    initCentroids(centroids, num_of_clusters, imageIn);
+    initCentroids(centroids, num_of_clusters, imageIn, width * height);
 
     //init array for keeping indices of closest centroid
     int *closest_centroid_indices = (int*)malloc(width * height * sizeof(int));
@@ -247,6 +250,4 @@ int main(int argc, char *argv[]) {
 	FIBITMAP *imageOutBitmap = FreeImage_ConvertFromRawBits(imageIn, width, height, pitch, 32, FI_RGBA_RED_MASK, FI_RGBA_GREEN_MASK, FI_RGBA_BLUE_MASK, TRUE);
 	FreeImage_Save(FIF_PNG, imageOutBitmap, "output/test.png", 0);
 	FreeImage_Unload(imageOutBitmap);
-
-    //encode image back TODO FREEIMAGE
 }
