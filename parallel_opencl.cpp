@@ -78,6 +78,11 @@ int main(int argc, char *argv[]) {
     int num_of_clusters = atoi(argv[2]);
     int num_of_iterations = atoi(argv[3]);
 
+    // Get version (of parallel opencl implementation) from optional 4th argument
+    int parallel_ver = 2;
+    if (argc > 4)
+        parallel_ver = atoi(argv[4]);
+
     //centroid init array
     int *centroids = (int*)malloc(num_of_clusters * 4 * sizeof(int));
     initCentroids(centroids, num_of_clusters, imageIn, width * height);
@@ -161,8 +166,10 @@ int main(int argc, char *argv[]) {
 
     // Allocate memory on device
 	cl_mem centroids_d = clCreateBuffer(context, CL_MEM_READ_WRITE, num_of_clusters * 4 * sizeof(int), NULL, &clStatus);
+    cl_mem centroids_sums_d = clCreateBuffer(context, CL_MEM_READ_WRITE, num_of_clusters * 5 * sizeof(int), NULL, &clStatus);
 	cl_mem closest_centroid_indices_d = clCreateBuffer(context, CL_MEM_READ_WRITE, num_pixels * sizeof(int), NULL, &clStatus);
     cl_mem image_in_d = clCreateBuffer(context, CL_MEM_READ_ONLY, num_pixels * 4 * sizeof(unsigned char), NULL, &clStatus);
+    //cl_mem debug_out_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(int), NULL, &clStatus);
 
     // Start measuring time
     struct timeval clock_start, clock_end;
@@ -171,22 +178,42 @@ int main(int argc, char *argv[]) {
 	// Transfer data to device
 	clStatus = clEnqueueWriteBuffer(command_queue, centroids_d, CL_TRUE, 0, num_of_clusters * 4 * sizeof(int), centroids, 0, NULL, NULL);
 	clStatus = clEnqueueWriteBuffer(command_queue, image_in_d, CL_TRUE, 0, num_pixels * 4 * sizeof(unsigned char), imageIn, 0, NULL, NULL);
+    int init_zero = 0;
+    clStatus = clEnqueueFillBuffer(command_queue, centroids_sums_d, &init_zero, sizeof(int), 0, num_of_clusters * 5 * sizeof(int), 0, NULL, NULL);
   
     // Create kernels and set arguments
-	cl_kernel kernel_find_closest_centroids = clCreateKernel(program, "find_closest_centroids", &clStatus);
-    clStatus = clSetKernelArg(kernel_find_closest_centroids, 0, sizeof(int), (void *)&num_of_clusters);
-    clStatus |= clSetKernelArg(kernel_find_closest_centroids, 1, sizeof(int), (void *)&num_pixels);
-    clStatus |= clSetKernelArg(kernel_find_closest_centroids, 2, sizeof(cl_mem), (void *)&centroids_d);
-    clStatus |= clSetKernelArg(kernel_find_closest_centroids, 3, sizeof(cl_mem), (void *)&closest_centroid_indices_d);
-    clStatus |= clSetKernelArg(kernel_find_closest_centroids, 4, sizeof(cl_mem), (void *)&image_in_d);
+    cl_kernel kernel_find_closest_centroids, kernel_update_centroids;
 
+    if (parallel_ver == 1) {
+        kernel_find_closest_centroids = clCreateKernel(program, "find_closest_centroids", &clStatus);
+        clStatus = clSetKernelArg(kernel_find_closest_centroids, 0, sizeof(int), (void *)&num_of_clusters);
+        clStatus |= clSetKernelArg(kernel_find_closest_centroids, 1, sizeof(int), (void *)&num_pixels);
+        clStatus |= clSetKernelArg(kernel_find_closest_centroids, 2, sizeof(cl_mem), (void *)&centroids_d);
+        clStatus |= clSetKernelArg(kernel_find_closest_centroids, 3, sizeof(cl_mem), (void *)&closest_centroid_indices_d);
+        clStatus |= clSetKernelArg(kernel_find_closest_centroids, 4, sizeof(cl_mem), (void *)&image_in_d);
 
-    cl_kernel kernel_update_centroids = clCreateKernel(program, "update_centroids", &clStatus);
-    clStatus = clSetKernelArg(kernel_update_centroids, 0, sizeof(int), (void *)&num_of_clusters);
-    clStatus |= clSetKernelArg(kernel_update_centroids, 1, sizeof(int), (void *)&num_pixels);
-    clStatus |= clSetKernelArg(kernel_update_centroids, 2, sizeof(cl_mem), (void *)&centroids_d);
-    clStatus |= clSetKernelArg(kernel_update_centroids, 3, sizeof(cl_mem), (void *)&closest_centroid_indices_d);
-    clStatus |= clSetKernelArg(kernel_update_centroids, 4, sizeof(cl_mem), (void *)&image_in_d);
+        kernel_update_centroids = clCreateKernel(program, "update_centroids", &clStatus);
+        clStatus = clSetKernelArg(kernel_update_centroids, 0, sizeof(int), (void *)&num_of_clusters);
+        clStatus |= clSetKernelArg(kernel_update_centroids, 1, sizeof(int), (void *)&num_pixels);
+        clStatus |= clSetKernelArg(kernel_update_centroids, 2, sizeof(cl_mem), (void *)&centroids_d);
+        clStatus |= clSetKernelArg(kernel_update_centroids, 3, sizeof(cl_mem), (void *)&closest_centroid_indices_d);
+        clStatus |= clSetKernelArg(kernel_update_centroids, 4, sizeof(cl_mem), (void *)&image_in_d);
+    }
+
+    else if (parallel_ver == 2) {
+        kernel_find_closest_centroids = clCreateKernel(program, "find_closest_centroids_2", &clStatus);
+        clStatus = clSetKernelArg(kernel_find_closest_centroids, 0, sizeof(int), (void *)&num_of_clusters);
+        clStatus |= clSetKernelArg(kernel_find_closest_centroids, 1, sizeof(int), (void *)&num_pixels);
+        clStatus |= clSetKernelArg(kernel_find_closest_centroids, 2, sizeof(cl_mem), (void *)&centroids_d);
+        clStatus |= clSetKernelArg(kernel_find_closest_centroids, 3, sizeof(cl_mem), (void *)&centroids_sums_d);
+        clStatus |= clSetKernelArg(kernel_find_closest_centroids, 4, sizeof(cl_mem), (void *)&closest_centroid_indices_d);
+        clStatus |= clSetKernelArg(kernel_find_closest_centroids, 5, sizeof(cl_mem), (void *)&image_in_d);
+
+        kernel_update_centroids = clCreateKernel(program, "update_centroids_2", &clStatus);
+        clStatus = clSetKernelArg(kernel_update_centroids, 0, sizeof(int), (void *)&num_of_clusters);
+        clStatus |= clSetKernelArg(kernel_update_centroids, 1, sizeof(cl_mem), (void *)&centroids_d);
+        clStatus |= clSetKernelArg(kernel_update_centroids, 2, sizeof(cl_mem), (void *)&centroids_sums_d);
+    }
 
     // Main loop
     for (int iteration = 0; iteration < (num_of_iterations); iteration++) {
@@ -206,6 +233,13 @@ int main(int argc, char *argv[]) {
     // Copy data back to host
 	clStatus = clEnqueueReadBuffer(command_queue, centroids_d, CL_TRUE, 0, num_of_clusters * 4 * sizeof(int), centroids, 0, NULL, NULL);
 	clStatus = clEnqueueReadBuffer(command_queue, closest_centroid_indices_d, CL_TRUE, 0, num_pixels * sizeof(int), closest_centroid_indices, 0, NULL, NULL);
+
+    // Copy and print debug var
+    /*
+    int debug_var = -1;
+    clStatus = clEnqueueReadBuffer(command_queue, debug_out_d, CL_TRUE, 0, sizeof(int), &debug_var, 0, NULL, NULL);
+    printf("GPU debug var: %d\n", debug_var);
+    */
 
     // Stop measuring time
     gettimeofday(&clock_end, NULL);
