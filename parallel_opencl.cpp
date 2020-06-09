@@ -170,10 +170,6 @@ int main(int argc, char *argv[]) {
 	cl_mem closest_centroid_indices_d = clCreateBuffer(context, CL_MEM_READ_WRITE, num_pixels * sizeof(int), NULL, &clStatus);
     cl_mem image_in_d = clCreateBuffer(context, CL_MEM_READ_ONLY, num_pixels * 4 * sizeof(unsigned char), NULL, &clStatus);
     //cl_mem debug_out_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(int), NULL, &clStatus);
-
-    // Start measuring time
-    struct timeval clock_start, clock_end;
-    gettimeofday(&clock_start, NULL);
 	
 	// Transfer data to device
 	clStatus = clEnqueueWriteBuffer(command_queue, centroids_d, CL_TRUE, 0, num_of_clusters * 4 * sizeof(int), centroids, 0, NULL, NULL);
@@ -231,6 +227,10 @@ int main(int argc, char *argv[]) {
         clStatus |= clSetKernelArg(kernel_update_centroids, 2, sizeof(cl_mem), (void *)&centroids_sums_d);
     }
 
+    // Start measuring time
+    struct timeval clock_start, clock_end;
+    gettimeofday(&clock_start, NULL);
+
     // Main loop
     for (int iteration = 0; iteration < (num_of_iterations); iteration++) {
         
@@ -246,6 +246,11 @@ int main(int argc, char *argv[]) {
 	clStatus = clFlush(command_queue);
     clStatus = clFinish(command_queue);
 
+    // Stop measuring time
+    gettimeofday(&clock_end, NULL);
+    float milisecs = ((((clock_end.tv_sec - clock_start.tv_sec) * 1000000) + clock_end.tv_usec) - (clock_start.tv_usec))/1000.0;
+    printf("%.2f\n", milisecs/num_of_iterations);
+
     // Copy data back to host
 	clStatus = clEnqueueReadBuffer(command_queue, centroids_d, CL_TRUE, 0, num_of_clusters * 4 * sizeof(int), centroids, 0, NULL, NULL);
 	clStatus = clEnqueueReadBuffer(command_queue, closest_centroid_indices_d, CL_TRUE, 0, num_pixels * sizeof(int), closest_centroid_indices, 0, NULL, NULL);
@@ -256,11 +261,6 @@ int main(int argc, char *argv[]) {
     clStatus = clEnqueueReadBuffer(command_queue, debug_out_d, CL_TRUE, 0, sizeof(int), &debug_var, 0, NULL, NULL);
     printf("GPU debug var: %d\n", debug_var);
     */
-
-    // Stop measuring time
-    gettimeofday(&clock_end, NULL);
-    float milisecs = ((((clock_end.tv_sec - clock_start.tv_sec) * 1000000) + clock_end.tv_usec) - (clock_start.tv_usec))/1000.0;
-    printf("%.2f\n", milisecs);
 
     // release & free
     clStatus = clFlush(command_queue);
