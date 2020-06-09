@@ -215,6 +215,22 @@ int main(int argc, char *argv[]) {
         clStatus |= clSetKernelArg(kernel_update_centroids, 2, sizeof(cl_mem), (void *)&centroids_sums_d);
     }
 
+    else if (parallel_ver == 3) {
+        kernel_find_closest_centroids = clCreateKernel(program, "find_closest_centroids_3", &clStatus);
+        clStatus = clSetKernelArg(kernel_find_closest_centroids, 0, sizeof(int), (void *)&num_of_clusters);
+        clStatus |= clSetKernelArg(kernel_find_closest_centroids, 1, sizeof(int), (void *)&num_pixels);
+        clStatus |= clSetKernelArg(kernel_find_closest_centroids, 2, sizeof(cl_mem), (void *)&centroids_d);
+        clStatus |= clSetKernelArg(kernel_find_closest_centroids, 3, sizeof(cl_mem), (void *)&centroids_sums_d);
+        clStatus |= clSetKernelArg(kernel_find_closest_centroids, 4, num_of_clusters * 5 * sizeof(int), NULL);
+        clStatus |= clSetKernelArg(kernel_find_closest_centroids, 5, sizeof(cl_mem), (void *)&closest_centroid_indices_d);
+        clStatus |= clSetKernelArg(kernel_find_closest_centroids, 6, sizeof(cl_mem), (void *)&image_in_d);
+
+        kernel_update_centroids = clCreateKernel(program, "update_centroids_2", &clStatus);
+        clStatus = clSetKernelArg(kernel_update_centroids, 0, sizeof(int), (void *)&num_of_clusters);
+        clStatus |= clSetKernelArg(kernel_update_centroids, 1, sizeof(cl_mem), (void *)&centroids_d);
+        clStatus |= clSetKernelArg(kernel_update_centroids, 2, sizeof(cl_mem), (void *)&centroids_sums_d);
+    }
+
     // Main loop
     for (int iteration = 0; iteration < (num_of_iterations); iteration++) {
         
