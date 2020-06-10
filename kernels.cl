@@ -176,6 +176,20 @@ __kernel void find_closest_centroids_3(int num_of_clusters,
     // Get the index of the work-item
     int gid = get_global_id(0);
     int lid = get_local_id(0);
+    int loc_size = get_local_size(0);
+
+    // Divide work
+    int displ = lid * num_of_clusters / loc_size;
+    int num_of_work = (lid + 1)*num_of_clusters / loc_size - lid * num_of_clusters / loc_size;
+
+    // Init local centroid sums
+    for (int i = displ; i < displ + num_of_work; i++) {
+        centroids_sums_local[i * 5 + 0] = 0;
+        centroids_sums_local[i * 5 + 1] = 0;
+        centroids_sums_local[i * 5 + 2] = 0;
+        centroids_sums_local[i * 5 + 3] = 0;
+        centroids_sums_local[i * 5 + 4] = 0;
+    }
 
     if (gid < num_of_points) {
 
@@ -208,15 +222,6 @@ __kernel void find_closest_centroids_3(int num_of_clusters,
 
         closest_centroid_indices[gid] = centroidIndex;
 
-        // Init local centroid sums
-        if (lid < num_of_clusters) {
-            centroids_sums_local[lid * 5 + 0] = 0;
-            centroids_sums_local[lid * 5 + 1] = 0;
-            centroids_sums_local[lid * 5 + 2] = 0;
-            centroids_sums_local[lid * 5 + 3] = 0;
-            centroids_sums_local[lid * 5 + 4] = 0;
-        }
-
         barrier(CLK_LOCAL_MEM_FENCE);
 
         // First add to local centroids sums 
@@ -226,17 +231,17 @@ __kernel void find_closest_centroids_3(int num_of_clusters,
         atomic_add(&centroids_sums_local[centroidIndex * 5 + 3], alpha);
         atomic_add(&centroids_sums_local[centroidIndex * 5 + 4], 1);
 
-        barrier(CLK_LOCAL_MEM_FENCE);
+    }
 
-        // Write to global memory for each cluster
-        if (lid < num_of_clusters) {
-            atomic_add(&centroids_sums[lid * 5], centroids_sums_local[lid * 5]);
-            atomic_add(&centroids_sums[lid * 5 + 1], centroids_sums_local[lid * 5 + 1]);
-            atomic_add(&centroids_sums[lid * 5 + 2], centroids_sums_local[lid * 5 + 2]);
-            atomic_add(&centroids_sums[lid * 5 + 3], centroids_sums_local[lid * 5 + 3]);
-            atomic_add(&centroids_sums[lid * 5 + 4], centroids_sums_local[lid * 5 + 4]);
-        }
+    barrier(CLK_LOCAL_MEM_FENCE);
 
+    // Write to global memory for each cluster
+    for (int i = displ; i < displ + num_of_work; i++) {
+        atomic_add(&centroids_sums[i * 5], centroids_sums_local[i * 5]);
+        atomic_add(&centroids_sums[i * 5 + 1], centroids_sums_local[i * 5 + 1]);
+        atomic_add(&centroids_sums[i * 5 + 2], centroids_sums_local[i * 5 + 2]);
+        atomic_add(&centroids_sums[i * 5 + 3], centroids_sums_local[i * 5 + 3]);
+        atomic_add(&centroids_sums[i * 5 + 4], centroids_sums_local[i * 5 + 4]);
     }
     
 }
