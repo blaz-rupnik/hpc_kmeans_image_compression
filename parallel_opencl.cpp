@@ -79,9 +79,14 @@ int main(int argc, char *argv[]) {
     int num_of_iterations = atoi(argv[3]);
 
     // Get version (of parallel opencl implementation) from optional 4th argument
-    int parallel_ver = 2;
+    int parallel_ver = 3;
     if (argc > 4)
         parallel_ver = atoi(argv[4]);
+
+    // Get local size from optional 5th argument (default is 256)
+    size_t local_size = 256;
+    if (argc > 5)
+        local_size = atoi(argv[5]);
 
     //centroid init array
     int *centroids = (int*)malloc(num_of_clusters * 4 * sizeof(int));
@@ -151,7 +156,6 @@ int main(int argc, char *argv[]) {
     }
 
 	// Set global size (pixels kernel) to multiple of local size 
-    size_t local_size = 256;
     size_t global_size_pixels = num_pixels;
     int mod = num_pixels % local_size;
     if (mod != 0)
