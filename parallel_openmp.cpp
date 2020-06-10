@@ -137,13 +137,11 @@ int main(int argc, char *argv[]){
             int alpha = imageIn[imageStartingPointIndex + 3];
             closest_centroid_indices[point] = findClosestCentroid(centroids, num_of_clusters, blue, green, red, alpha);
         }
-        #pragma omp barrier
         //step 2: for each centroid compute average which will be new centroid
         #pragma omp parallel for
         for(int centroid = 0; centroid < (num_of_clusters); centroid++){
             applyNewCentroidValue(centroid, centroids, closest_centroid_indices, imageIn, width*height);
         }
-        #pragma omp barrier
         double iteration_end = omp_get_wtime();
         if(iteration == 0){
             printf("Time elapsed for first iteration: %f \n", iteration_end - iteration_start);
