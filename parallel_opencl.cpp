@@ -3,7 +3,7 @@
 #include <cstdlib>
 #include <string.h>
 #include <math.h>
-#include <sys/time.h>
+#include <time.h>
 #include <CL/cl.h>
 #include "FreeImage.h"
 
@@ -48,6 +48,14 @@ void applyNewColoursToImage(unsigned char* image, int* closest_centroid_indices,
         image[i+2] = centroids[closestCentroid * 4 + 2];
         image[i+3] = centroids[closestCentroid * 4 + 3];
     }
+}
+
+void printClockResolution() {
+    struct timespec res;
+    if ( clock_getres( CLOCK_MONOTONIC, &res) == -1 ) {
+        perror( "clock get resolution" );
+    }
+    printf( "Resolution is %ld nano seconds.\n", res.tv_nsec );
 }
 
 int main(int argc, char *argv[]) {
@@ -231,29 +239,30 @@ int main(int argc, char *argv[]) {
         clStatus |= clSetKernelArg(kernel_update_centroids, 2, sizeof(cl_mem), (void *)&centroids_sums_d);
     }
 
-    // Start measuring time
-    struct timeval clock_start, clock_end;
-    gettimeofday(&clock_start, NULL);
+    printf("%s clusters:%s version:%s\n", argv[1], argv[2], argv[4]);
 
     // Main loop
     for (int iteration = 0; iteration < (num_of_iterations); iteration++) {
-        
-        cl_event kernel1_event, kernel2_event;
 
+        // Start measuring time
+        struct timespec clock_start, clock_end;
+        clock_gettime(CLOCK_MONOTONIC, &clock_start);
+        
         // Step 1: go through all points and find closest centroid
-	    clStatus = clEnqueueNDRangeKernel(command_queue, kernel_find_closest_centroids, 1, NULL, &global_size_pixels, &local_size, 0, NULL, &kernel1_event);
+	    clStatus = clEnqueueNDRangeKernel(command_queue, kernel_find_closest_centroids, 1, NULL, &global_size_pixels, &local_size, 0, NULL, NULL);
 
         // Step 2: for each centroid compute average which will be new centroid
-	    clStatus = clEnqueueNDRangeKernel(command_queue, kernel_update_centroids, 1, NULL, &global_size_clusters, &local_size, 0, NULL, &kernel2_event);
+	    clStatus = clEnqueueNDRangeKernel(command_queue, kernel_update_centroids, 1, NULL, &global_size_clusters, &local_size, 0, NULL, NULL);
+
+        // Wait for kernels to finish
+        clStatus = clFlush(command_queue);
+        clStatus = clFinish(command_queue);
+
+        // Stop measuring time
+        clock_gettime(CLOCK_MONOTONIC, &clock_end);
+        long nanosecs = ((((clock_end.tv_sec - clock_start.tv_sec)*1000*1000*1000) + clock_end.tv_nsec) - (clock_start.tv_nsec));
+        printf("%.2f\n", nanosecs/(1000.0*1000.0));
     }
-
-	clStatus = clFlush(command_queue);
-    clStatus = clFinish(command_queue);
-
-    // Stop measuring time
-    gettimeofday(&clock_end, NULL);
-    float milisecs = ((((clock_end.tv_sec - clock_start.tv_sec) * 1000000) + clock_end.tv_usec) - (clock_start.tv_usec))/1000.0;
-    printf("%.2f\n", milisecs/num_of_iterations);
 
     // Copy data back to host
 	clStatus = clEnqueueReadBuffer(command_queue, centroids_d, CL_TRUE, 0, num_of_clusters * 4 * sizeof(int), centroids, 0, NULL, NULL);
@@ -279,20 +288,6 @@ int main(int argc, char *argv[]) {
     clStatus = clReleaseContext(context);
 	free(devices);
     free(platforms);
-
-
-	// Kernel time (in ms) measurements with OpenCL events
-    /*
-    cl_ulong time_start, time_end;
-    double elapsed_time1, elapsed_time2, elapsed_time3;
-    clGetEventProfilingInfo(kernel1_event, CL_PROFILING_COMMAND_START, sizeof(time_start), &time_start, NULL);
-    clGetEventProfilingInfo(kernel1_event, CL_PROFILING_COMMAND_END, sizeof(time_end), &time_end, NULL);
-	elapsed_time1 = (time_end - time_start) / 1000000.0;
-	clGetEventProfilingInfo(kernel2_event, CL_PROFILING_COMMAND_START, sizeof(time_start), &time_start, NULL);
-    clGetEventProfilingInfo(kernel2_event, CL_PROFILING_COMMAND_END, sizeof(time_end), &time_end, NULL);
-	elapsed_time2 = (time_end - time_start) / 1000000.0;
-    printf("%f    %f\n", elapsed_time1, elapsed_time2);
-    */
 
     //apply new colours to input image
     applyNewColoursToImage(imageIn, closest_centroid_indices, pitch*height, num_of_clusters, centroids);

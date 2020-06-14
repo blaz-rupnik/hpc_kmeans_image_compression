@@ -52,7 +52,7 @@ void applyNewCentroidValue(int centroidIndex, int* centroids, int* closest_centr
     }
     //compute average, TODO: How to handle empty cluster
     if(count == 0){
-        printf("Warning! Cluster %d has no points. \n", centroidIndex);
+        //printf("Warning! Cluster %d has no points. \n", centroidIndex);
     }else {
         centroids[centroidIndex * 4] = blue / count;
         centroids[centroidIndex * 4 + 1] = green / count;
@@ -124,7 +124,14 @@ int main(int argc, char *argv[]){
     //init array for keeping indices of closest centroid
     int *closest_centroid_indices = (int*)malloc(width * height * sizeof(int));
 
+    printf("%s clusters:%s\n", argv[1], argv[2]);
+
     for(int iteration = 0; iteration < (num_of_iterations); iteration++){
+
+        // Start measuring time
+        struct timespec clock_start, clock_end;
+        clock_gettime(CLOCK_MONOTONIC, &clock_start);
+
         //step 1: go through all points and find closest centroid
         for(int point = 0; point < (width*height); point++){
             int imageStartingPointIndex = point * 4;
@@ -138,6 +145,11 @@ int main(int argc, char *argv[]){
         for(int centroid = 0; centroid < (num_of_clusters); centroid++){
             applyNewCentroidValue(centroid, centroids, closest_centroid_indices, imageIn, width*height);
         }
+
+        // Stop measuring time
+        clock_gettime(CLOCK_MONOTONIC, &clock_end);
+        long nanosecs = ((((clock_end.tv_sec - clock_start.tv_sec)*1000*1000*1000) + clock_end.tv_nsec) - (clock_start.tv_nsec));
+        printf("%.4f\n", nanosecs/(1000.0*1000.0));
     }
 
     //apply new colours to input image
