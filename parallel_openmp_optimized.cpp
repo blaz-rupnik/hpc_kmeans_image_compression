@@ -123,6 +123,8 @@ int main(int argc, char *argv[]){
     //init array for keeping indices of closest centroid
     int *closest_centroid_indices = (int*)malloc(width * height * sizeof(int));
 
+    printf("%s clusters:%s threads:%d\n", argv[1], argv[2], omp_get_max_threads());
+
     for(int iteration = 0; iteration < (num_of_iterations); iteration++){
         double iteration_start = omp_get_wtime();
         //step 1: go through all points and find closest centroid
@@ -140,9 +142,7 @@ int main(int argc, char *argv[]){
             applyNewCentroidValue(centroid, centroids, closest_centroid_indices, imageIn, width*height);
         }
         double iteration_end = omp_get_wtime();
-        if(iteration == 0){
-            printf("%f\n", iteration_end - iteration_start);
-        }
+        printf("%.4f\n", (iteration_end - iteration_start) * 1000.0);
     }
 
     //apply new colours to input image
