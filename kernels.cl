@@ -1,3 +1,5 @@
+#pragma OPENCL EXTENSION cl_khr_int64_base_atomics: enable
+
 __kernel void find_closest_centroids(int num_of_clusters,
                                     int num_of_points,
                                     __global int *centroids,
@@ -84,7 +86,7 @@ __kernel void update_centroids(int num_of_clusters,
 __kernel void find_closest_centroids_2(int num_of_clusters,
                                     int num_of_points,
                                     __global int *centroids,
-                                    __global int *centroids_sums,
+                                    __global long *centroids_sums,
                                     __global int *closest_centroid_indices,
                                     __global const unsigned char *image_in) {
     
@@ -134,7 +136,7 @@ __kernel void find_closest_centroids_2(int num_of_clusters,
 
 __kernel void update_centroids_2(int num_of_clusters,
                                 __global int *centroids,
-                                __global int *centroids_sums) {
+                                __global long *centroids_sums) {
     
     // Get the index of the work-item
     int gid = get_global_id(0);
@@ -168,7 +170,7 @@ __kernel void update_centroids_2(int num_of_clusters,
 __kernel void find_closest_centroids_3(int num_of_clusters,
                                     int num_of_points,
                                     __global int *centroids,
-                                    __global int *centroids_sums,
+                                    __global long *centroids_sums,
                                     __local int *centroids_sums_local,
                                     __global int *closest_centroid_indices,
                                     __global const unsigned char *image_in) {

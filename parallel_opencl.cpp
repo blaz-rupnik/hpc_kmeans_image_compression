@@ -178,7 +178,7 @@ int main(int argc, char *argv[]) {
 
     // Allocate memory on device
 	cl_mem centroids_d = clCreateBuffer(context, CL_MEM_READ_WRITE, num_of_clusters * 4 * sizeof(int), NULL, &clStatus);
-    cl_mem centroids_sums_d = clCreateBuffer(context, CL_MEM_READ_WRITE, num_of_clusters * 5 * sizeof(int), NULL, &clStatus);
+    cl_mem centroids_sums_d = clCreateBuffer(context, CL_MEM_READ_WRITE, num_of_clusters * 5 * sizeof(long), NULL, &clStatus);
 	cl_mem closest_centroid_indices_d = clCreateBuffer(context, CL_MEM_READ_WRITE, num_pixels * sizeof(int), NULL, &clStatus);
     cl_mem image_in_d = clCreateBuffer(context, CL_MEM_READ_ONLY, num_pixels * 4 * sizeof(unsigned char), NULL, &clStatus);
     //cl_mem debug_out_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(int), NULL, &clStatus);
@@ -186,8 +186,8 @@ int main(int argc, char *argv[]) {
 	// Transfer data to device
 	clStatus = clEnqueueWriteBuffer(command_queue, centroids_d, CL_TRUE, 0, num_of_clusters * 4 * sizeof(int), centroids, 0, NULL, NULL);
 	clStatus = clEnqueueWriteBuffer(command_queue, image_in_d, CL_TRUE, 0, num_pixels * 4 * sizeof(unsigned char), imageIn, 0, NULL, NULL);
-    int init_zero = 0;
-    clStatus = clEnqueueFillBuffer(command_queue, centroids_sums_d, &init_zero, sizeof(int), 0, num_of_clusters * 5 * sizeof(int), 0, NULL, NULL);
+    long init_zero = 0;
+    clStatus = clEnqueueFillBuffer(command_queue, centroids_sums_d, &init_zero, sizeof(long), 0, num_of_clusters * 5 * sizeof(long), 0, NULL, NULL);
   
     // Create kernels and set arguments
     cl_kernel kernel_find_closest_centroids, kernel_update_centroids;
